@@ -121,18 +121,7 @@ h1 {
     margin: 10px;
 }
 
-#submit {
-    border: none;
-    border-radius: 12px;
-    padding: 12px 25px;
-    font-size: 17px;
-    font-weight: bold;
-    cursor: pointer;
-    background: white;
-    color: #171b38;
-    margin: 8px;
-}
-
+#submit,
 #start {
     border: none;
     border-radius: 12px;
@@ -142,6 +131,7 @@ h1 {
     cursor: pointer;
     background: white;
     color: #171b38;
+    margin: 8px;
 }
 
 button:disabled {
@@ -244,7 +234,7 @@ let selected = [];
 
 let playing = false;
 let timeLeft = 15;
-let timer;
+let timer = null;
 
 
 /* -------------------------
@@ -253,13 +243,14 @@ let timer;
 
 function createPuzzle() {
 
+    /* FIX:
+       Make the new round playable.
+    */
+    playing = true;
+
     selected = [];
 
     numbersContainer.innerHTML = "";
-
-    /*
-       Difficulty increases with the round.
-    */
 
     const maxNumber = 10 + round * 3;
 
@@ -274,9 +265,8 @@ function createPuzzle() {
     }
 
     /*
-       Choose two or three numbers and
-       create a target that is definitely
-       possible using addition.
+       Pick numbers that will create
+       a target that is definitely possible.
     */
 
     const first =
@@ -286,15 +276,17 @@ function createPuzzle() {
         Math.floor(Math.random() * numbers.length);
 
     while (second === first) {
+
         second =
             Math.floor(Math.random() * numbers.length);
     }
 
-    target = numbers[first] + numbers[second];
+    target =
+        numbers[first] + numbers[second];
 
     /*
-       Sometimes use three numbers
-       at higher levels.
+       Higher levels can require
+       three numbers.
     */
 
     if (round >= 6) {
@@ -306,6 +298,7 @@ function createPuzzle() {
             third === first ||
             third === second
         ) {
+
             third =
                 Math.floor(Math.random() * numbers.length);
         }
@@ -313,15 +306,7 @@ function createPuzzle() {
         target += numbers[third];
     }
 
-    /*
-       Display target
-    */
-
     targetDisplay.textContent = target;
-
-    /*
-       Create buttons
-    */
 
     numbers.forEach((number, index) => {
 
@@ -332,18 +317,19 @@ function createPuzzle() {
 
         button.textContent = number;
 
-        button.addEventListener("click", () => {
-
-            selectNumber(index, button);
-
-        });
+        button.addEventListener(
+            "click",
+            () => selectNumber(index, button)
+        );
 
         numbersContainer.appendChild(button);
-
     });
 
     currentDisplay.textContent =
         "Selected: 0";
+
+    message.textContent =
+        "Find the numbers that make the target!";
 
     submitButton.disabled = true;
 
@@ -369,25 +355,26 @@ function selectNumber(index, button) {
 
     button.classList.add("selected");
 
-    const total = selected.reduce(
-        (sum, i) => sum + numbers[i],
-        0
-    );
+    const total =
+        selected.reduce(
+            (sum, i) => sum + numbers[i],
+            0
+        );
 
     currentDisplay.textContent =
         `Selected: ${total}`;
 
     submitButton.disabled = false;
 
-    /*
-       Stop selecting if the total
-       has already gone over target.
-    */
-
     if (total > target) {
 
         message.textContent =
-            "⚠️ Too high! Try again.";
+            "⚠️ Too high!";
+
+    } else if (total === target) {
+
+        message.textContent =
+            "🎯 Looks good! Check your answer!";
 
     } else {
 
@@ -407,10 +394,11 @@ function checkAnswer() {
         return;
     }
 
-    const total = selected.reduce(
-        (sum, i) => sum + numbers[i],
-        0
-    );
+    const total =
+        selected.reduce(
+            (sum, i) => sum + numbers[i],
+            0
+        );
 
     if (total === target) {
 
@@ -422,23 +410,43 @@ function checkAnswer() {
         scoreDisplay.textContent =
             score;
 
-        message.textContent =
-            `🎉 Correct! +${points} points`;
-
         playing = false;
 
         clearInterval(timer);
 
-        setTimeout(() => {
+        message.textContent =
+            `🎉 Correct! +${points} points`;
 
-            nextRound();
+        submitButton.disabled = true;
 
-        }, 900);
+        if (round === 9) {
+
+            setTimeout(() => {
+
+                finishGame();
+
+            }, 1000);
+
+        } else {
+
+            setTimeout(() => {
+
+                round++;
+
+                roundDisplay.textContent =
+                    `${round + 1}/10`;
+
+                message.textContent =
+                    "🥷 Next challenge!";
+
+                createPuzzle();
+
+            }, 1000);
+        }
 
     } else {
 
         loseLife();
-
     }
 }
 
@@ -455,27 +463,6 @@ function loseLife() {
         "❤️".repeat(lives) +
         "🖤".repeat(3 - lives);
 
-    if (lives <= 0) {
-
-        playing = false;
-
-        clearInterval(timer);
-
-        message.textContent =
-            "💥 Game over!";
-
-        setTimeout(() => {
-
-            gameOver();
-
-        }, 1000);
-
-        return;
-    }
-
-    message.textContent =
-        "❌ Not quite! Try another combination.";
-
     selected = [];
 
     document
@@ -488,6 +475,29 @@ function loseLife() {
 
     currentDisplay.textContent =
         "Selected: 0";
+
+    submitButton.disabled = true;
+
+    if (lives <= 0) {
+
+        playing = false;
+
+        clearInterval(timer);
+
+        message.textContent =
+            "💥 Game over!";
+
+        setTimeout(() => {
+
+            finishGame();
+
+        }, 1000);
+
+        return;
+    }
+
+    message.textContent =
+        "❌ Not quite! Try another combination.";
 }
 
 
@@ -500,12 +510,20 @@ function startTimer() {
     clearInterval(timer);
 
     timeLeft =
-        Math.max(7, 15 - Math.floor(round / 2));
+        Math.max(
+            7,
+            15 - Math.floor(round / 2)
+        );
 
     timerDisplay.textContent =
         `Time: ${timeLeft}`;
 
     timer = setInterval(() => {
+
+        if (!playing) {
+            clearInterval(timer);
+            return;
+        }
 
         timeLeft--;
 
@@ -528,7 +546,6 @@ function startTimer() {
                     createPuzzle();
 
                 }, 700);
-
             }
         }
 
@@ -537,35 +554,10 @@ function startTimer() {
 
 
 /* -------------------------
-   NEXT ROUND
+   FINISH GAME
 ------------------------- */
 
-function nextRound() {
-
-    round++;
-
-    if (round >= 10) {
-
-        gameOver();
-
-        return;
-    }
-
-    roundDisplay.textContent =
-        `${round + 1}/10`;
-
-    message.textContent =
-        "🥷 New challenge!";
-
-    createPuzzle();
-}
-
-
-/* -------------------------
-   GAME OVER
-------------------------- */
-
-function gameOver() {
+function finishGame() {
 
     playing = false;
 
@@ -575,10 +567,15 @@ function gameOver() {
 
     targetDisplay.textContent = "🏆";
 
+    currentDisplay.textContent = "";
+
+    timerDisplay.textContent = "";
+
     message.textContent =
-        `Game over! Final score: ${score}`;
+        `Game complete! Final score: ${score}`;
 
     startButton.disabled = false;
+
     startButton.textContent =
         "Play Again";
 
@@ -592,12 +589,14 @@ function gameOver() {
 
 function startGame() {
 
+    clearInterval(timer);
+
     round = 0;
     score = 0;
     lives = 3;
 
     scoreDisplay.textContent =
-        score;
+        "0";
 
     livesDisplay.textContent =
         "❤️❤️❤️";
@@ -605,9 +604,21 @@ function startGame() {
     roundDisplay.textContent =
         "1/10";
 
+    targetDisplay.textContent =
+        "🎯";
+
+    currentDisplay.textContent =
+        "Selected: 0";
+
+    timerDisplay.textContent =
+        "Time: 15";
+
     startButton.disabled = true;
+
     startButton.textContent =
         "Playing...";
+
+    submitButton.disabled = true;
 
     message.textContent =
         "🥷 Get ready!";
