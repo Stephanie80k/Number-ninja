@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Number Ninja 🔢</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #101b2d, #28506b);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.game {
+    width: min(700px, 100%);
+    text-align: center;
+    background: rgba(255,255,255,0.08);
+    padding: 28px;
+    border-radius: 25px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+}
+
+h1 {
+    margin: 0 0 5px;
+    font-size: 40px;
+}
+
+.subtitle {
+    opacity: 0.8;
+    margin-bottom: 20px;
+}
+
+.stats {
+    display: flex;
+    justify-content: space-around;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.stat {
+    background: rgba(255,255,255,0.1);
+    padding: 10px 15px;
+    border-radius: 14px;
+    min-width: 100px;
+}
+
+.stat b {
+    display: block;
+    font-size: 22px;
+    margin-top: 4px;
+}
+
+#message {
+    min-height: 30px;
+    font-weight: bold;
+    margin: 15px;
+}
+
+#target {
+    font-size: 48px;
+    font-weight: bold;
+    margin: 20px 0;
+}
+
+#numbers {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin: 20px auto;
+    max-width: 550px;
+}
+
+.number {
+    width: 85px;
+    height: 70px;
+    border: none;
+    border-radius: 15px;
+    background: #607d9b;
+    color: white;
+    font-size: 25px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.12s, background 0.15s;
+}
+
+.number:hover {
+    transform: scale(1.05);
+}
+
+.number.selected {
+    background: #67e8f9;
+    color: #10152d;
+}
+
+.number.disabled {
+    cursor: default;
+    pointer-events: none;
+    opacity: 0.55;
+}
+
+#current {
+    font-size: 20px;
+    margin: 15px;
+}
+
+#timer {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 10px;
+}
+
+#submit {
+    border: none;
+    border-radius: 12px;
+    padding: 12px 25px;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+    background: white;
+    color: #171b38;
+    margin: 8px;
+}
+
+#start {
+    border: none;
+    border-radius: 12px;
+    padding: 13px 25px;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+    background: white;
+    color: #171b38;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.info {
+    font-size: 13px;
+    opacity: 0.65;
+    margin-top: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="game">
+
+    <h1>🔢 Number Ninja</h1>
+
+    <div class="subtitle">
+        Use your numbers to reach the target!
+    </div>
+
+    <div class="stats">
+
+        <div class="stat">
+            Round
+            <b id="round">0/10</b>
+        </div>
+
+        <div class="stat">
+            Score
+            <b id="score">0</b>
+        </div>
+
+        <div class="stat">
+            Lives
+            <b id="lives">❤️❤️❤️</b>
+        </div>
+
+    </div>
+
+    <div id="message">
+        Press Start to begin!
+    </div>
+
+    <div id="target">🎯</div>
+
+    <div id="numbers"></div>
+
+    <div id="current">
+        Selected: 0
+    </div>
+
+    <div id="timer">
+        Time: 15
+    </div>
+
+    <button id="submit" disabled>
+        Check Answer
+    </button>
+
+    <br>
+
+    <button id="start">
+        Start Game
+    </button>
+
+    <div class="info">
+        This game focuses on numerical reasoning and problem solving.
+    </div>
+
+</div>
+
+<script>
+
+const targetDisplay = document.getElementById("target");
+const numbersContainer = document.getElementById("numbers");
+const message = document.getElementById("message");
+
+const roundDisplay = document.getElementById("round");
+const scoreDisplay = document.getElementById("score");
+const livesDisplay = document.getElementById("lives");
+
+const currentDisplay = document.getElementById("current");
+const timerDisplay = document.getElementById("timer");
+
+const startButton = document.getElementById("start");
+const submitButton = document.getElementById("submit");
+
+let round = 0;
+let score = 0;
+let lives = 3;
+
+let target = 0;
+let numbers = [];
+let selected = [];
+
+let playing = false;
+let timeLeft = 15;
+let timer;
+
+
+/* -------------------------
+   CREATE PUZZLE
+------------------------- */
+
+function createPuzzle() {
+
+    selected = [];
+
+    numbersContainer.innerHTML = "";
+
+    /*
+       Difficulty increases with the round.
+    */
+
+    const maxNumber = 10 + round * 3;
+
+    numbers = [];
+
+    for (let i = 0; i < 5; i++) {
+
+        numbers.push(
+            Math.floor(Math.random() * maxNumber) + 1
+        );
+
+    }
+
+    /*
+       Choose two or three numbers and
+       create a target that is definitely
+       possible using addition.
+    */
+
+    const first =
+        Math.floor(Math.random() * numbers.length);
+
+    let second =
+        Math.floor(Math.random() * numbers.length);
+
+    while (second === first) {
+        second =
+            Math.floor(Math.random() * numbers.length);
+    }
+
+    target = numbers[first] + numbers[second];
+
+    /*
+       Sometimes use three numbers
+       at higher levels.
+    */
+
+    if (round >= 6) {
+
+        let third =
+            Math.floor(Math.random() * numbers.length);
+
+        while (
+            third === first ||
+            third === second
+        ) {
+            third =
+                Math.floor(Math.random() * numbers.length);
+        }
+
+        target += numbers[third];
+    }
+
+    /*
+       Display target
+    */
+
+    targetDisplay.textContent = target;
+
+    /*
+       Create buttons
+    */
+
+    numbers.forEach((number, index) => {
+
+        const button =
+            document.createElement("button");
+
+        button.className = "number";
+
+        button.textContent = number;
+
+        button.addEventListener("click", () => {
+
+            selectNumber(index, button);
+
+        });
+
+        numbersContainer.appendChild(button);
+
+    });
+
+    currentDisplay.textContent =
+        "Selected: 0";
+
+    submitButton.disabled = true;
+
+    startTimer();
+}
+
+
+/* -------------------------
+   SELECT NUMBER
+------------------------- */
+
+function selectNumber(index, button) {
+
+    if (!playing) {
+        return;
+    }
+
+    if (selected.includes(index)) {
+        return;
+    }
+
+    selected.push(index);
+
+    button.classList.add("selected");
+
+    const total = selected.reduce(
+        (sum, i) => sum + numbers[i],
+        0
+    );
+
+    currentDisplay.textContent =
+        `Selected: ${total}`;
+
+    submitButton.disabled = false;
+
+    /*
+       Stop selecting if the total
+       has already gone over target.
+    */
+
+    if (total > target) {
+
+        message.textContent =
+            "⚠️ Too high! Try again.";
+
+    } else {
+
+        message.textContent =
+            "Keep going...";
+    }
+}
+
+
+/* -------------------------
+   CHECK ANSWER
+------------------------- */
+
+function checkAnswer() {
+
+    if (!playing) {
+        return;
+    }
+
+    const total = selected.reduce(
+        (sum, i) => sum + numbers[i],
+        0
+    );
+
+    if (total === target) {
+
+        const points =
+            100 + timeLeft * 5 + round * 20;
+
+        score += points;
+
+        scoreDisplay.textContent =
+            score;
+
+        message.textContent =
+            `🎉 Correct! +${points} points`;
+
+        playing = false;
+
+        clearInterval(timer);
+
+        setTimeout(() => {
+
+            nextRound();
+
+        }, 900);
+
+    } else {
+
+        loseLife();
+
+    }
+}
+
+
+/* -------------------------
+   LOSE LIFE
+------------------------- */
+
+function loseLife() {
+
+    lives--;
+
+    livesDisplay.textContent =
+        "❤️".repeat(lives) +
+        "🖤".repeat(3 - lives);
+
+    if (lives <= 0) {
+
+        playing = false;
+
+        clearInterval(timer);
+
+        message.textContent =
+            "💥 Game over!";
+
+        setTimeout(() => {
+
+            gameOver();
+
+        }, 1000);
+
+        return;
+    }
+
+    message.textContent =
+        "❌ Not quite! Try another combination.";
+
+    selected = [];
+
+    document
+        .querySelectorAll(".number")
+        .forEach(button => {
+
+            button.classList.remove("selected");
+
+        });
+
+    currentDisplay.textContent =
+        "Selected: 0";
+}
+
+
+/* -------------------------
+   TIMER
+------------------------- */
+
+function startTimer() {
+
+    clearInterval(timer);
+
+    timeLeft =
+        Math.max(7, 15 - Math.floor(round / 2));
+
+    timerDisplay.textContent =
+        `Time: ${timeLeft}`;
+
+    timer = setInterval(() => {
+
+        timeLeft--;
+
+        timerDisplay.textContent =
+            `Time: ${timeLeft}`;
+
+        if (timeLeft <= 0) {
+
+            clearInterval(timer);
+
+            message.textContent =
+                "⏰ Time's up!";
+
+            loseLife();
+
+            if (lives > 0) {
+
+                setTimeout(() => {
+
+                    createPuzzle();
+
+                }, 700);
+
+            }
+        }
+
+    }, 1000);
+}
+
+
+/* -------------------------
+   NEXT ROUND
+------------------------- */
+
+function nextRound() {
+
+    round++;
+
+    if (round >= 10) {
+
+        gameOver();
+
+        return;
+    }
+
+    roundDisplay.textContent =
+        `${round + 1}/10`;
+
+    message.textContent =
+        "🥷 New challenge!";
+
+    createPuzzle();
+}
+
+
+/* -------------------------
+   GAME OVER
+------------------------- */
+
+function gameOver() {
+
+    playing = false;
+
+    clearInterval(timer);
+
+    numbersContainer.innerHTML = "";
+
+    targetDisplay.textContent = "🏆";
+
+    message.textContent =
+        `Game over! Final score: ${score}`;
+
+    startButton.disabled = false;
+    startButton.textContent =
+        "Play Again";
+
+    submitButton.disabled = true;
+}
+
+
+/* -------------------------
+   START GAME
+------------------------- */
+
+function startGame() {
+
+    round = 0;
+    score = 0;
+    lives = 3;
+
+    scoreDisplay.textContent =
+        score;
+
+    livesDisplay.textContent =
+        "❤️❤️❤️";
+
+    roundDisplay.textContent =
+        "1/10";
+
+    startButton.disabled = true;
+    startButton.textContent =
+        "Playing...";
+
+    message.textContent =
+        "🥷 Get ready!";
+
+    playing = true;
+
+    setTimeout(() => {
+
+        createPuzzle();
+
+    }, 700);
+}
+
+
+/* -------------------------
+   BUTTONS
+------------------------- */
+
+startButton.addEventListener(
+    "click",
+    startGame
+);
+
+submitButton.addEventListener(
+    "click",
+    checkAnswer
+);
+
+</script>
+
+</body>
+</html>
